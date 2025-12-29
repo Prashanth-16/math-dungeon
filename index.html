@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Math Dungeon</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+<style>
+* {
+  box-sizing: border-box;
+  font-family: 'Press Start 2P', cursive;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(#111, #000);
+  color: #fff;
+  text-align: center;
+}
+
+.screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.hidden { display: none; }
+
+button, select, input {
+  padding: 10px;
+  margin-top: 10px;
+}
+
+button {
+  background: crimson;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  padding: 10px;
+  background: #111;
+}
+
+.enemySprite {
+  font-size: 60px;
+  transition: transform 0.2s;
+}
+
+.enemyHit {
+  transform: scale(1.3);
+}
+
+.hpBar {
+  width: 220px;
+  height: 15px;
+  background: #333;
+  margin: 10px auto;
+}
+
+.hpFill {
+  height: 100%;
+  background: lime;
+  width: 100%;
+  transition: width 0.3s;
+}
+
+#floatingText {
+  position: absolute;
+  font-size: 22px;
+  animation: float 1s ease-out;
+}
+
+@keyframes float {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-40px); }
+}
+
+.shake {
+  animation: shake 0.3s;
+}
+
+@keyframes shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+  100% { transform: translateX(0); }
+}
+</style>
+</head>
+
+<body>
+
+<!-- START SCREEN -->
+<div id="startScreen" class="screen">
+  <h1>🗡️ Math Dungeon</h1>
+
+  <p>Select Topic</p>
+  <select id="topicSelect">
+    <option value="integers">Integers</option>
+    <option value="fractions">Fractions</option>
+    <option value="algebra">Algebra</option>
+    <option value="geometry">Geometry</option>
+  </select>
+
+  <p>Select Grade</p>
+  <select id="gradeSelect">
+    <option value="6">Grade 6</option>
+    <option value="7">Grade 7</option>
+    <option value="8">Grade 8</option>
+  </select>
+
+  <button onclick="startGame()">ENTER DUNGEON</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen" class="screen hidden">
+  <div class="hud">
+    <span>♥ <span id="lives"></span></span>
+    <span>⚡ <span id="score">0</span></span>
+    <span>🔥 <span id="combo">0</span></span>
+    <span>ROOM <span id="room">1</span></span>
+  </div>
+
+  <h2 id="enemyName"></h2>
+  <div class="enemySprite" id="enemySprite">👾</div>
+  <div class="hpBar">
+    <div class="hpFill" id="enemyHP"></div>
+  </div>
+
+  <p id="question"></p>
+  <input type="number" id="answer" placeholder="Your answer">
+  <button onclick="attack()">ATTACK</button>
+
+  <div id="floatingText"></div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameOver" class="screen hidden">
+  <h1>💀 GAME OVER</h1>
+  <p>Score: <span id="finalScore"></span></p>
+  <p>Rooms Cleared: <span id="finalRoom"></span></p>
+  <button onclick="location.reload()">RESTART</button>
+</div>
+
+<script>
+let lives, score, combo, room;
+let enemyHP, maxHP;
+let topic, gradeLevel;
+let correctAnswer;
+let questionStartTime;
+
+function startGame() {
+  topic = document.getElementById("topicSelect").value;
+  gradeLevel = Number(document.getElementById("gradeSelect").value);
+
+  lives = 3;
+  score = 0;
+  combo = 0;
+  room = 1;
+
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("gameScreen").classList.remove("hidden");
+
+  updateHUD();
+  spawnEnemy();
+}
+
+function updateHUD() {
+  document.getElementById("lives").textContent = "♥".repeat(lives);
+  document.getElementById("score").textContent = score;
+  document.getElementById("combo").textContent = combo;
+  document.getElementById("room").textContent = room;
+}
+
+function spawnEnemy() {
+  let boss = room % 5 === 0;
+  let baseHP = gradeLevel === 6 ? 30 : gradeLevel === 7 ? 45 : 60;
+  maxHP = boss ? baseHP * 2 : baseHP;
+  enemyHP = maxHP;
+
+  document.getElementById("enemyName").textContent =
+    boss ? `👹 Grade ${gradeLevel} Boss` : `👾 Grade ${gradeLevel} Enemy`;
+
+  document.getElementById("enemySprite").textContent = boss ? "👹" : "👾";
+
+  updateEnemyHP();
+  generateQuestion();
+}
+
+function updateEnemyHP() {
+  document.getElementById("enemyHP").style.width = (enemyHP / maxHP * 100) + "%";
+}
+
+function generateQuestion() {
+  questionStartTime = Date.now();
+  let q;
+
+  if (topic === "integers") q = integerQuestion();
+  if (topic === "fractions") q = fractionQuestion();
+  if (topic === "algebra") q = algebraQuestion();
+  if (topic === "geometry") q = geometryQuestion();
+
+  document.getElementById("question").textContent = q;
+}
+
+function integerQuestion() {
+  if (gradeLevel === 6) {
+    let a = rand(-20, 20), b = rand(-20, 20);
+    correctAnswer = a + b;
+    return `${a} + (${b}) = ?`;
+  }
+  if (gradeLevel === 7) {
+    let a = rand(-30, 30), b = rand(-30, 30);
+    correctAnswer = a - b;
+    return `${a} - (${b}) = ?`;
+  }
+  let a = rand(-15, 15), b = rand(-10, 10);
+  correctAnswer = a * b;
+  return `${a} × ${b} = ?`;
+}
+
+function fractionQuestion() {
+  let d = gradeLevel === 6 ? 5 : gradeLevel === 7 ? 8 : 10;
+  let a = rand(1, d - 1), b = rand(1, d - 1);
+  correctAnswer = a + b;
+  return `${a}/${d} + ${b}/${d} = ? (numerator)`;
+}
+
+function algebraQuestion() {
+  if (gradeLevel === 6) {
+    let x = rand(1, 10), b = rand(1, 10);
+    correctAnswer = x;
+    return `x + ${b} = ${x + b}. Find x`;
+  }
+  if (gradeLevel === 7) {
+    let x = rand(1, 10), a = rand(2, 5);
+    correctAnswer = x;
+    return `${a}x = ${a * x}. Find x`;
+  }
+  let x = rand(1, 10), a = rand(2, 6), b = rand(1, 10);
+  correctAnswer = x;
+  return `${a}x + ${b} = ${(a * x) + b}. Find x`;
+}
+
+function geometryQuestion() {
+  if (gradeLevel === 6) {
+    let l = rand(2, 10), w = rand(2, 10);
+    correctAnswer = l * w;
+    return `Area of rectangle (${l} × ${w}) = ?`;
+  }
+  if (gradeLevel === 7) {
+    let s = rand(3, 12);
+    correctAnswer = 4 * s;
+    return `Perimeter of square (side ${s}) = ?`;
+  }
+  let b = rand(4, 12), h = rand(4, 12);
+  correctAnswer = Math.floor(0.5 * b * h);
+  return `Area of triangle (½ × ${b} × ${h}) = ?`;
+}
+
+function attack() {
+  let ans = Number(document.getElementById("answer").value);
+  document.getElementById("answer").value = "";
+
+  let time = (Date.now() - questionStartTime) / 1000;
+  let speedBonus = time <= 2 ? 3 : time <= 4 ? 2 : 1;
+
+  if (ans === correctAnswer) {
+    combo++;
+    let damage = (10 + combo * 2) * speedBonus;
+    enemyHP -= damage;
+    score += damage;
+
+    showText(speedBonus === 3 ? "CRITICAL!" : "HIT!");
+
+    document.getElementById("enemySprite").classList.add("enemyHit");
+    setTimeout(() => {
+      document.getElementById("enemySprite").classList.remove("enemyHit");
+    }, 200);
+
+    if (enemyHP <= 0) {
+      room++;
+      spawnEnemy();
+    }
+  } else {
+    combo = 0;
+    lives--;
+    showText("YOU WERE HIT");
+    document.body.classList.add("shake");
+    setTimeout(() => document.body.classList.remove("shake"), 300);
+
+    if (lives <= 0) return gameOver();
+  }
+
+  updateEnemyHP();
+  updateHUD();
+  generateQuestion();
+}
+
+function showText(text) {
+  let ft = document.getElementById("floatingText");
+  ft.textContent = text;
+  ft.style.display = "block";
+  setTimeout(() => ft.style.display = "none", 800);
+}
+
+function gameOver() {
+  document.getElementById("gameScreen").classList.add("hidden");
+  document.getElementById("gameOver").classList.remove("hidden");
+  document.getElementById("finalScore").textContent = score;
+  document.getElementById("finalRoom").textContent = room;
+}
+
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+</script>
+
+</body>
+</html>
